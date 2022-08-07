@@ -262,7 +262,7 @@ int main (int argc, char **argv) {
 
 
   /* Create Avro Serdes handle */
-  Serdes::Avro *serdes = Serdes::Avro::create(sconf, errstr);
+  auto serdes = Serdes::Avro<avro::GenericDatum>::create(sconf, errstr);
   if (!serdes)
     FATAL("Failed to create Serdes handle: " << errstr);
 

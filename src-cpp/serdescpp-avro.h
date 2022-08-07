@@ -17,12 +17,17 @@
 
 #include <string>
 
+#include <avro/Specific.hh>
 #include <avro/ValidSchema.hh>
 
 #include "serdescpp.h"
 
 namespace Serdes {
 
+template <typename T>
+concept AvroSerializable = std::is_class<avro::codec_traits<T>>::value;
+
+template <AvroSerializable T>
 class SERDES_EXPORT Avro : public virtual Handle {
 public:
   virtual ~Avro () = 0;
@@ -30,18 +35,18 @@ public:
   /**
    * Create Avro serializer/deserializer
    */
-  static Avro *create (const Conf *conf, std::string &errstr);
+  static Avro<T> *create (const Conf *conf, std::string &errstr);
 
   /**
-   * Serialize the generic Avro datum to output vector 'out'.
+   * Serialize the generic Avro object to output vector 'out'.
    * Returns the number of bytes written to 'out' or -1 on error (in which
    * case errstr is set).
    */
-  virtual ssize_t serialize (Schema *schema, const avro::GenericDatum *datum,
+  virtual ssize_t serialize (Schema *schema, const T *t,
                              std::vector<char> &out, std::string &errstr) = 0;
 
   /**
-   * Deserialize binary buffer `payload` of size `size` to generic Avro datum.
+   * Deserialize binary buffer `payload` of size `size` to generic Avro object.
    * If '*schemap' is NULL the payload is expected to have the same framing
    * as configured `deserializer.framing` and the deserializer will use
    * the framing to look up the schema used and also return the schema
@@ -53,9 +58,11 @@ public:
    * Returns the number of bytes read from `payload` on success, else
    * returns -1 and sets `errstr` accordingly.
    */
-  virtual ssize_t deserialize (Schema **schemap, avro::GenericDatum **datump,
+  virtual ssize_t deserialize (Schema **schemap, T **tp,
                                const void *payload, size_t size,
                                std::string &errstr) = 0;
 };
 
 }
+
+#include "serdescpp_int.h"

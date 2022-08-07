@@ -28,13 +28,6 @@ extern "C" {
 
 namespace Serdes {
 
-
-  std::string err2str (ErrorCode err) {
-    return std::string(serdes_err2str(static_cast<serdes_err_t>(err)));
-  }
-
-
-
   class ConfImpl : public Conf {
  public:
     ~ConfImpl () {
@@ -158,17 +151,17 @@ namespace Serdes {
     serdes_schema_t *schema_;
   };
 
-
-  class AvroImpl : public Avro, public HandleImpl {
+template <AvroSerializable T>
+class AvroImpl : public Avro<T>, public HandleImpl {
  public:
     ~AvroImpl () { }
 
-    static Avro *create (const Conf *conf, std::string &errstr);
+    static Avro<T> *create (const Conf *conf, std::string &errstr);
 
-    ssize_t serialize (Schema *schema, const avro::GenericDatum *datum,
+    ssize_t serialize (Schema *schema, const T *t,
                        std::vector<char> &out, std::string &errstr);
 
-    ssize_t deserialize (Schema **schemap, avro::GenericDatum **datump,
+    ssize_t deserialize (Schema **schemap, T **tp,
                          const void *payload, size_t size, std::string &errstr);
 
     ssize_t serializer_framing_size () const {
@@ -182,7 +175,111 @@ namespace Serdes {
     int schemas_purge (int max_age) {
       return HandleImpl::schemas_purge(max_age);
     }
+};
 
-  };
+template <AvroSerializable T>
+Serdes::Avro<T>::~Avro () {
+}
+
+int create_serdes (HandleImpl *hnd, const Conf *conf, std::string &errstr);
+
+template <AvroSerializable T>
+Avro<T> *Avro<T>::create(const Conf *conf, std::string &errstr) {
+  AvroImpl<T> *avimpl = new AvroImpl<T>();
+
+  if (create_serdes(avimpl, conf, errstr) == -1) {
+    delete avimpl;
+    return NULL;
+  }
+
+  return avimpl;
+};
+
+template <AvroSerializable T>
+ssize_t AvroImpl<T>::serialize (Schema *schema, const T *t,
+                             std::vector<char> &out, std::string &errstr) {
+  auto avro_schema = schema->object();
+
+  /* Binary encoded output stream */
+  auto bin_os = avro::memoryOutputStream();
+  /* Avro binary encoder */
+  auto bin_encoder = avro::validatingEncoder(*avro_schema, avro::binaryEncoder());
+
+  try {
+    /* Encode Avro object to Avro binary format */
+    bin_encoder->init(*bin_os.get());
+    avro::encode(*bin_encoder, *t);
+    bin_encoder->flush();
+
+  } catch (const avro::Exception &e) {
+    errstr = std::string("Avro serialization failed: ") + e.what();
+    return -1;
+  }
+
+  /* Extract written bytes. */
+  auto encoded = avro::snapshot(*bin_os.get());
+
+  /* Write framing */
+  schema->framing_write(out);
+
+  /* Write binary encoded Avro to output vector */
+  out.insert(out.end(), encoded->cbegin(), encoded->cend());
+
+  return out.size();
+}
+
+
+template <AvroSerializable T>
+ssize_t AvroImpl<T>::deserialize (Schema **schemap, T **tp,
+                               const void *payload, size_t size,
+                               std::string &errstr) {
+  serdes_schema_t *ss;
+
+  /* Read framing */
+  char c_errstr[256];
+  ssize_t r = serdes_framing_read(sd_, &payload, &size, &ss,
+                                  c_errstr, sizeof(c_errstr));
+  if (r == -1) {
+    errstr = c_errstr;
+    return -1;
+  } else if (r == 0 && !*schemap) {
+    errstr = "Unable to decode payload: No framing and no schema specified";
+    return -1;
+  }
+
+  Schema *schema = *schemap;
+  if (!schema) {
+    schema = Serdes::Schema::get(dynamic_cast<HandleImpl*>(this),
+                                 serdes_schema_id(ss), errstr);
+    if (!schema)
+      return -1;
+  }
+
+  avro::ValidSchema *avro_schema = schema->object();
+
+  /* Binary input stream */
+  auto bin_is = avro::memoryInputStream((const uint8_t *)payload, size);
+
+  /* Binary Avro decoder */
+  avro::DecoderPtr bin_decoder = avro::validatingDecoder(*avro_schema,
+                                                         avro::binaryDecoder());
+
+  T *t = new T;
+
+  try {
+    /* Decode binary to Avro object */
+    bin_decoder->init(*bin_is);
+    avro::decode(*bin_decoder, *t);
+
+  } catch (const avro::Exception &e) {
+    errstr = std::string("Avro deserialization failed: ") + e.what();
+    delete t;
+    return -1;
+  }
+
+  *schemap = schema;
+  *tp = t;
+  return 0;
+}
 
 }

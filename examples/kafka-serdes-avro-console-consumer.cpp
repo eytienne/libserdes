@@ -47,7 +47,7 @@ static bool run = true;
 static int verbosity = 2;
 static long long msg_cnt = 0;
 static long long msg_bytes = 0;
-static Serdes::Avro *serdes;
+static Serdes::Avro<avro::GenericDatum> *serdes;
 static int payload_serialized = 0;
 static int key_serialized = 0;
 
@@ -316,7 +316,7 @@ int main (int argc, char **argv) {
 
 
   /* Create Avro Serdes handle */
-  serdes = Serdes::Avro::create(sconf, errstr);
+  serdes = Serdes::Avro<avro::GenericDatum>::create(sconf, errstr);
   if (!serdes)
     FATAL("Failed to create Serdes handle: " << errstr);
   delete sconf;

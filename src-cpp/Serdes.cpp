@@ -31,6 +31,9 @@
 
 namespace Serdes {
 
+  std::string err2str (ErrorCode err) {
+    return std::string(serdes_err2str(static_cast<serdes_err_t>(err)));
+  }
 
 static void log_cb_trampoline (serdes_t *sd, int level,
                                const char *fac,
@@ -70,7 +73,7 @@ static void schema_unload_cb_trampoline (serdes_schema_t *schema,
 /**
  * Common function to create a serdes handle based on conf.
  */
-static int create_serdes (HandleImpl *hnd, const Conf *conf, std::string &errstr) {
+int create_serdes (HandleImpl *hnd, const Conf *conf, std::string &errstr) {
   const ConfImpl *confimpl = conf ? dynamic_cast<const ConfImpl*>(conf) : NULL;
   serdes_conf_t *sconf;
   char c_errstr[256];
@@ -199,107 +202,6 @@ Schema *Schema::add (Handle *handle, const std::string &name, int id,
 }
 
 
-
-Serdes::Avro::~Avro () {
-
-}
-
-Avro *Avro::create (const Conf *conf, std::string &errstr) {
-  AvroImpl *avimpl = new AvroImpl();
-
-  if (create_serdes(avimpl, conf, errstr) == -1) {
-    delete avimpl;
-    return NULL;
-  }
-
-  return avimpl;
-}
-
-
-ssize_t AvroImpl::serialize (Schema *schema, const avro::GenericDatum *datum,
-                             std::vector<char> &out, std::string &errstr) {
-  auto avro_schema = schema->object();
-
-  /* Binary encoded output stream */
-  auto bin_os = avro::memoryOutputStream();
-  /* Avro binary encoder */
-  auto bin_encoder = avro::validatingEncoder(*avro_schema, avro::binaryEncoder());
-
-  try {
-    /* Encode Avro datum to Avro binary format */
-    bin_encoder->init(*bin_os.get());
-    avro::encode(*bin_encoder, *datum);
-    bin_encoder->flush();
-
-  } catch (const avro::Exception &e) {
-    errstr = std::string("Avro serialization failed: ") + e.what();
-    return -1;
-  }
-
-  /* Extract written bytes. */
-  auto encoded = avro::snapshot(*bin_os.get());
-
-  /* Write framing */
-  schema->framing_write(out);
-
-  /* Write binary encoded Avro to output vector */
-  out.insert(out.end(), encoded->cbegin(), encoded->cend());
-
-  return out.size();
-}
-
-
-ssize_t AvroImpl::deserialize (Schema **schemap, avro::GenericDatum **datump,
-                               const void *payload, size_t size,
-                               std::string &errstr) {
-  serdes_schema_t *ss;
-
-  /* Read framing */
-  char c_errstr[256];
-  ssize_t r = serdes_framing_read(sd_, &payload, &size, &ss,
-                                  c_errstr, sizeof(c_errstr));
-  if (r == -1) {
-    errstr = c_errstr;
-    return -1;
-  } else if (r == 0 && !*schemap) {
-    errstr = "Unable to decode payload: No framing and no schema specified";
-    return -1;
-  }
-
-  Schema *schema = *schemap;
-  if (!schema) {
-    schema = Serdes::Schema::get(dynamic_cast<HandleImpl*>(this),
-                                 serdes_schema_id(ss), errstr);
-    if (!schema)
-      return -1;
-  }
-
-  avro::ValidSchema *avro_schema = schema->object();
-
-  /* Binary input stream */
-  auto bin_is = avro::memoryInputStream((const uint8_t *)payload, size);
-
-  /* Binary Avro decoder */
-  avro::DecoderPtr bin_decoder = avro::validatingDecoder(*avro_schema,
-                                                         avro::binaryDecoder());
-
-  avro::GenericDatum *datum = new avro::GenericDatum(*avro_schema);
-
-  try {
-    /* Decode binary to Avro datum */
-    bin_decoder->init(*bin_is);
-    avro::decode(*bin_decoder, *datum);
-
-  } catch (const avro::Exception &e) {
-    errstr = std::string("Avro deserialization failed: ") + e.what();
-    delete datum;
-    return -1;
-  }
-
-  *schemap = schema;
-  *datump = datum;
-  return 0;
-}
 
 }
 
