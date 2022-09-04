@@ -161,7 +161,7 @@ class AvroImpl : public Avro<T>, public HandleImpl {
     ssize_t serialize (Schema *schema, const T *t,
                        std::vector<char> &out, std::string &errstr);
 
-    ssize_t deserialize (Schema **schemap, T **tp,
+    ssize_t deserialize (Schema **schemap, T *t,
                          const void *payload, size_t size, std::string &errstr);
 
     ssize_t serializer_framing_size () const {
@@ -230,7 +230,7 @@ ssize_t AvroImpl<T>::serialize (Schema *schema, const T *t,
 
 
 template <AvroSerializable T>
-ssize_t AvroImpl<T>::deserialize (Schema **schemap, T **tp,
+ssize_t AvroImpl<T>::deserialize (Schema **schemap, T *t,
                                const void *payload, size_t size,
                                std::string &errstr) {
   serdes_schema_t *ss;
@@ -264,8 +264,6 @@ ssize_t AvroImpl<T>::deserialize (Schema **schemap, T **tp,
   avro::DecoderPtr bin_decoder = avro::validatingDecoder(*avro_schema,
                                                          avro::binaryDecoder());
 
-  T *t = new T;
-
   try {
     /* Decode binary to Avro object */
     bin_decoder->init(*bin_is);
@@ -273,12 +271,10 @@ ssize_t AvroImpl<T>::deserialize (Schema **schemap, T **tp,
 
   } catch (const avro::Exception &e) {
     errstr = std::string("Avro deserialization failed: ") + e.what();
-    delete t;
     return -1;
   }
 
   *schemap = schema;
-  *tp = t;
   return 0;
 }
 

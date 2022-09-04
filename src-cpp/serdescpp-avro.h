@@ -58,7 +58,7 @@ public:
    * Returns the number of bytes read from `payload` on success, else
    * returns -1 and sets `errstr` accordingly.
    */
-  virtual ssize_t deserialize (Schema **schemap, T **tp,
+  virtual ssize_t deserialize (Schema **schemap, T *tp,
                                const void *payload, size_t size,
                                std::string &errstr) = 0;
 };

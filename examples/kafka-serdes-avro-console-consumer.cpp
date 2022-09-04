@@ -101,7 +101,7 @@ static void decode_and_print (const std::string &pfx,
   Serdes::Schema *schema = NULL;
   std::string errstr;
 
-  if (serdes->deserialize(&schema, &d, buf, len, errstr) == -1 ||
+  if (serdes->deserialize(&schema, d, buf, len, errstr) == -1 ||
       avro2json(schema, d, out, errstr) == -1) {
     std::cout << "\"" << pfx << "_error\": \"" << errstr << "\", ";
 
