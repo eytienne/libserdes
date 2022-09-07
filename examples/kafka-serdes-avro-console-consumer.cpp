@@ -35,11 +35,11 @@
 
 #include <librdkafka/rdkafkacpp.h>
 
-#include <avro/Encoder.hh>
-#include <avro/Decoder.hh>
-#include <avro/Generic.hh>
-#include <avro/Specific.hh>
-#include <avro/Exception.hh>
+#include <avro/api/Encoder.hh>
+#include <avro/api/Decoder.hh>
+#include <avro/api/Generic.hh>
+#include <avro/api/Specific.hh>
+#include <avro/api/Exception.hh>
 
 
 

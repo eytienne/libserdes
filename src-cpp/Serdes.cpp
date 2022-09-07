@@ -17,12 +17,12 @@
 #include <cstdio>
 #include <exception>
 
-#include <avro/Compiler.hh>
-#include <avro/Encoder.hh>
-#include <avro/Decoder.hh>
-#include <avro/Generic.hh>
-#include <avro/Specific.hh>
-#include <avro/Exception.hh>
+#include <avro/api/Compiler.hh>
+#include <avro/api/Encoder.hh>
+#include <avro/api/Decoder.hh>
+#include <avro/api/Generic.hh>
+#include <avro/api/Specific.hh>
+#include <avro/api/Exception.hh>
 
 #include "serdescpp.h"
 #include "serdescpp-avro.h"

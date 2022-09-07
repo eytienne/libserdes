@@ -17,8 +17,8 @@
 
 #include <string>
 
-#include <avro/Specific.hh>
-#include <avro/ValidSchema.hh>
+#include <avro/api/Specific.hh>
+#include <avro/api/ValidSchema.hh>
 
 #include "serdescpp.h"
 

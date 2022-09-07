@@ -26,7 +26,7 @@
 #include <getopt.h>
 #include <signal.h>
 
-#include <avro/Decoder.hh>
+#include <avro/api/Decoder.hh>
 
 /* Typical include path is <libserdes/serdescpp.h> */
 #include "../src-cpp/serdescpp.h"
